@@ -59,7 +59,7 @@ class Hyper4kHttpAdapter(
 
     override fun adapterName(): String = "hyper4k"
 
-    override suspend fun start(ctx: NetonContext, onStarted: ((coldStartMs: Long) -> Unit)?) {
+    override suspend fun start(ctx: NetonContext, onStarted: (suspend (coldStartMs: Long) -> Unit)?) {
         check(server == null) { "hyper4k server already started" }
         bindContext(ctx)
 
