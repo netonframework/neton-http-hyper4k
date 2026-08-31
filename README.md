@@ -7,7 +7,7 @@ at compile time by passing its constructor to the Neton HTTP component:
 
 ```kotlin
 dependencies {
-    implementation("com.netonframework:neton-http-hyper4k:0.1.0")
+    implementation("com.netonframework:neton-http-hyper4k:0.2.0")
 }
 ```
 
@@ -24,6 +24,11 @@ Neton.run(args) {
 
 The default `http { }` overload remains Ktor. Adapter selection is not an `application.conf`
 setting because Kotlin/Native links implementations at compile time.
+
+The adapter always uses asynchronous handoff. Hyper snapshots each request on its Tokio worker,
+then Neton runs the suspend handler in a bounded Kotlin/Native coroutine scope. The standard
+`http.maxConnections` and `http.timeout` settings provide overload protection and request timeout;
+there is no Hyper-specific thread-pool or handoff switch.
 
 For local development, place `neton`, `hyper4k`, and this repository in the same parent directory,
 then run:
