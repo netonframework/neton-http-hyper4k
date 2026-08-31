@@ -32,6 +32,7 @@ import neton.core.http.SimpleCookie
 import neton.core.http.UploadFiles
 import neton.core.http.ValidationException
 import neton.core.http.adapter.HttpAdapter
+import neton.core.http.adapter.HttpCapability
 import neton.core.http.httpStatusForErrorCode
 import neton.core.interfaces.ConfiguredRouteGroups
 import neton.core.interfaces.RequestContext
@@ -58,6 +59,25 @@ class Hyper4kHttpAdapter(
     override fun port(): Int = serverConfig.port
 
     override fun adapterName(): String = "hyper4k"
+
+    /**
+     * hyper4k 当前的实际能力（spec http-engine-capabilities §3）。
+     *
+     * **目前是空集**，逐项说明 —— 声明一个没做完的能力比不声明危险得多：
+     * 启动校验会放行，然后在运行时以「行为不对但不报错」的形式暴露。
+     *
+     * - `STREAMING_RESPONSE`：Rust 侧只有单请求聚合 body，没有分块写出通道，
+     *   走的是 `HttpResponse.stream()` 的缓冲兼容路径（SSE 会全堆到最后才吐）
+     * - `MULTIPART`：未实现
+     * - `ASYNC_HANDOFF`：[start] 里是 `runBlocking { dispatch(request) }`，
+     *   回调线程被 Kotlin 协程阻塞，长耗时 handler 直接占住 Tokio worker
+     * - `HTTP_2`：`hyper` 依赖已带 `features = ["http2"]`，但 accept 循环仍固定
+     *   用 `http1::Builder`
+     * - `TRAILERS`：随 HTTP/2 一并
+     *
+     * 每补齐一项：**先让对应的引擎一致性测试通过，再往这里加声明**（spec §6）。
+     */
+    override val capabilities: Set<HttpCapability> = emptySet()
 
     override suspend fun start(ctx: NetonContext, onStarted: (suspend (coldStartMs: Long) -> Unit)?) {
         check(server == null) { "hyper4k server already started" }
