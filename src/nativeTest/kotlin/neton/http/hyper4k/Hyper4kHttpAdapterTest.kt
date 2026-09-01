@@ -43,7 +43,14 @@ class Hyper4kHttpAdapterTest {
         )
 
         assertIs<Hyper4kHttpAdapter>(adapter)
-        assertEquals(setOf(HttpCapability.ASYNC_HANDOFF), adapter.capabilities)
+        assertEquals(
+            setOf(
+                HttpCapability.ASYNC_HANDOFF,
+                HttpCapability.STREAMING_RESPONSE,
+                HttpCapability.HTTP_2,
+            ),
+            adapter.capabilities,
+        )
     }
 
     @Test

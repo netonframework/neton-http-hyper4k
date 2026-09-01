@@ -37,13 +37,19 @@ kotlin {
             }
         }
 
+        // The conformance streaming checks talk BSD sockets, so they live on the
+        // Apple targets rather than in nativeTest, which mingw shares.
+        val appleTest by creating {
+            dependsOn(nativeTest)
+        }
+
         macosArm64Main.get().dependsOn(nativeMain)
         macosX64Main.get().dependsOn(nativeMain)
         linuxX64Main.get().dependsOn(nativeMain)
         linuxArm64Main.get().dependsOn(nativeMain)
         mingwX64Main.get().dependsOn(nativeMain)
-        macosArm64Test.get().dependsOn(nativeTest)
-        macosX64Test.get().dependsOn(nativeTest)
+        macosArm64Test.get().dependsOn(appleTest)
+        macosX64Test.get().dependsOn(appleTest)
         linuxX64Test.get().dependsOn(nativeTest)
         linuxArm64Test.get().dependsOn(nativeTest)
         mingwX64Test.get().dependsOn(nativeTest)

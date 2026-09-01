@@ -24,7 +24,13 @@ public class Hyper4kHttpAdapter(
     private var server: Hyper4kServer? = null
     private var appContext: NetonContext? = null
 
-    override val capabilities: Set<HttpCapability> = setOf(HttpCapability.ASYNC_HANDOFF)
+    override val capabilities: Set<HttpCapability> = setOf(
+        HttpCapability.ASYNC_HANDOFF,
+        // Both are earned, not asserted: the conformance suite's streaming checks and
+        // hyper4k's h2c test fail the build if either of these stops holding.
+        HttpCapability.STREAMING_RESPONSE,
+        HttpCapability.HTTP_2,
+    )
 
     override fun port(): Int = serverConfig.port
 
