@@ -2,6 +2,7 @@ package neton.http.hyper4k
 
 import hyper4k.Hyper4kRequest
 import hyper4k.Hyper4kResponse
+import hyper4k.Hyper4kResponseChannel
 import hyper4k.Hyper4kServer
 import kotlinx.coroutines.delay
 import neton.core.component.NetonContext
@@ -43,7 +44,7 @@ public class Hyper4kHttpAdapter(
                 dispatcher.transportFailureResponse(status, message).toHyper4k()
             },
         )
-        running.start { request -> dispatch(request) }
+        running.start { request, channel -> dispatch(request, channel) }
         server = running
         val coldStart = kotlin.time.Clock.System.now().toEpochMilliseconds() - startedAt
         logger()?.info("neton.http.hyper4k.started", mapOf("port" to serverConfig.port))
@@ -65,6 +66,23 @@ public class Hyper4kHttpAdapter(
 
     internal suspend fun dispatch(request: Hyper4kRequest): Hyper4kResponse =
         dispatcher.dispatch(request.toBuffered()).toHyper4k()
+
+    /**
+     * 带真流式通道的分发。
+     *
+     * handler 自己提交了（write / stream / redirect）就不再二次写出——
+     * 头早就发出去了，再写一遍就是「响应发两次」。这与 Ktor 适配器同构。
+     */
+    internal suspend fun dispatch(
+        request: Hyper4kRequest,
+        channel: Hyper4kResponseChannel,
+    ): Hyper4kResponse {
+        val buffered = request.toBuffered()
+        // CORS 头必须在提交前就交给 live response：流式一旦开始写就补不上头了。
+        val live = Hyper4kLiveResponse(channel, dispatcher.corsHeaders(buffered))
+        val result = dispatcher.dispatch(buffered, live)
+        return if (live.isCommitted) Hyper4kResponse.streamed(live.status.code) else result.toHyper4k()
+    }
 
     internal fun transportFailureResponse(status: Int, message: String): Hyper4kResponse =
         dispatcher.transportFailureResponse(status, message).toHyper4k()
