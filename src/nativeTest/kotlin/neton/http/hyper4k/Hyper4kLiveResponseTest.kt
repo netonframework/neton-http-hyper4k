@@ -20,8 +20,8 @@ class Hyper4kLiveResponseTest {
 
         response.stream {
             writeChunk("data: 1\n\n")
-            // 第 1 块必须在第 2 块产生**之前**就已经交给引擎——
-            // 缓冲实现在这里会是空的，那正是 SSE 静默失效的样子。
+            // Chunk one must reach the engine before chunk two is produced.
+            // A buffering implementation is still empty here.
             assertEquals(listOf("data: 1\n\n"), channel.chunks)
             writeChunk("data: 2\n\n")
         }
@@ -41,7 +41,8 @@ class Hyper4kLiveResponseTest {
             channel,
             corsHeaders = mapOf("Access-Control-Allow-Origin" to listOf("https://example.com")),
         )
-        // 流式响应的长度由引擎按协议表达，handler 自己写的 Content-Length 只会和真实长度打架。
+        // The engine frames the length per protocol, so a hand-written Content-Length
+        // can only contradict it.
         response.header("Content-Length", "999")
         response.header("X-Trace", "abc")
 
@@ -63,7 +64,7 @@ class Hyper4kLiveResponseTest {
             writeChunk("third")
         }
 
-        // 客户端关页面是正常路径：停止产生数据，照常收尾，不抛异常。
+        // A closed tab is a normal path: stop producing data, close as usual, no throw.
         assertContentEquals(listOf("first"), channel.chunks)
         assertTrue(response.clientGone)
         assertTrue(channel.isFinished)
@@ -96,7 +97,7 @@ class Hyper4kLiveResponseTest {
         assertTrue(channel.isFinished)
     }
 
-    /** 记录调用的假通道。[acceptWrites] 之后的写入模拟客户端已断开。 */
+    /** Fake channel that records calls. Writes past [acceptWrites] act as a gone client. */
     private class RecordingChannel(private val acceptWrites: Int = Int.MAX_VALUE) : Hyper4kResponseChannel {
         var status: Int? = null
         var headers: Map<String, List<String>> = emptyMap()

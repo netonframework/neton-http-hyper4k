@@ -10,14 +10,16 @@ import neton.core.http.MutableHeaders
 import neton.core.http.NetonErrorCode
 
 /**
- * 真流式 [HttpResponse]：handler 直接写 hyper4k 的下行通道（SSE / relay 依赖）。
+ * Streaming [HttpResponse]: the handler writes straight to hyper4k's downstream
+ * channel, which is what SSE and relay endpoints need.
  *
- * 与 KtorLiveResponse 一一对应，语义也保持一致：所有「提交」入口
- * （write / stream / redirect）统一置 [isCommitted]，提交后禁止二次写。
- * 适配器据此判断「handler 已经自己应答了」，不再二次写出。
+ * Mirrors KtorLiveResponse, semantics included: every commit entry point
+ * (write / stream / redirect) sets [isCommitted], and writing twice is refused.
+ * The adapter reads that flag to tell whether the handler already answered.
  *
- * 客户端中途断开不是错误：[Hyper4kResponseChannel.write] 返回 false 时停止写入、
- * 收尾返回，SSE 客户端关页面走的就是这条路。
+ * A client disconnecting midway is not an error: when
+ * [Hyper4kResponseChannel.write] returns false, stop writing and close. That is
+ * the path an SSE client takes when it closes its tab.
  */
 internal class Hyper4kLiveResponse(
     private val channel: Hyper4kResponseChannel,
@@ -28,7 +30,7 @@ internal class Hyper4kLiveResponse(
 
     override var status: HttpStatus = HttpStatus.OK
 
-    /** hyper4k 的头块是扁平文本，Set-Cookie 直接作为一行头写出。 */
+    /** hyper4k's header block is flat text, so Set-Cookie goes out as one more line. */
     override fun cookie(cookie: Cookie) {
         headers.add("Set-Cookie", encodeCookie(cookie))
     }
@@ -39,7 +41,7 @@ internal class Hyper4kLiveResponse(
     private var writtenBytes: Long = 0L
     override val bytesOut: Long get() = writtenBytes
 
-    /** 客户端是否已经断开（write 报过 CLIENT_GONE）。 */
+    /** Whether the client is gone, that is a write reported CLIENT_GONE. */
     var clientGone: Boolean = false
         private set
 
@@ -51,17 +53,19 @@ internal class Hyper4kLiveResponse(
     }
 
     /**
-     * 汇总要发出的响应头。
+     * Collects the headers to send.
      *
-     * Content-Length 一律剔除：流式响应的长度由引擎按协议表达
-     * （HTTP/1.1 chunked 或 HTTP/2 DATA 帧），自己写一个只会和真实长度打架。
+     * Content-Length is always dropped: the engine expresses a streaming body's
+     * length per protocol, as HTTP/1.1 chunked or HTTP/2 DATA frames, so a
+     * hand-written one can only contradict the real length.
      */
     private fun outgoingHeaders(): Map<String, List<String>> = buildMap<String, MutableList<String>> {
         for (name in headers.names()) {
             if (name.equals("Content-Length", ignoreCase = true)) continue
             getOrPut(name) { mutableListOf() }.addAll(headers.getAll(name))
         }
-        // CORS 头必须在提交**前**注入：一旦开始写 body 就补不上头了。
+        // CORS headers have to go in before committing: once the body starts, no
+        // header can be added.
         for ((name, values) in corsHeaders) {
             getOrPut(name) { mutableListOf() }.addAll(values)
         }
@@ -82,10 +86,11 @@ internal class Hyper4kLiveResponse(
     }
 
     /**
-     * 真流式写出：每块 writeChunk 直接落到引擎的 body 通道并即时发出。
+     * Streaming write: each writeChunk lands in the engine's body channel and goes
+     * out at once.
      *
-     * 背压由通道本身提供——客户端读得慢时 writeChunk 会等，
-     * 这正是「不要把整个响应先在内存里堆起来」的意义。
+     * The channel itself carries the backpressure, so writeChunk waits while the
+     * client reads slowly rather than piling the whole response up in memory.
      */
     override suspend fun stream(block: suspend HttpBodyWriter.() -> Unit) {
         ensureNotCommitted()
@@ -127,7 +132,7 @@ private fun encodeCookie(cookie: Cookie): String = buildString {
     }
 }
 
-/** 简化的 MutableHeaders 实现：保留原始大小写，查找大小写不敏感。 */
+/** Small MutableHeaders: keeps the original casing, looks up case-insensitively. */
 private class SimpleMutableHeaders : MutableHeaders {
     private val map = LinkedHashMap<String, MutableList<String>>()
 

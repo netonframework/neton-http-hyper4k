@@ -68,17 +68,19 @@ public class Hyper4kHttpAdapter(
         dispatcher.dispatch(request.toBuffered()).toHyper4k()
 
     /**
-     * 带真流式通道的分发。
+     * Dispatch with a live streaming channel.
      *
-     * handler 自己提交了（write / stream / redirect）就不再二次写出——
-     * 头早就发出去了，再写一遍就是「响应发两次」。这与 Ktor 适配器同构。
+     * A handler that committed itself (write / stream / redirect) is not written
+     * out a second time: its headers are already on the wire. Same shape as the
+     * Ktor adapter.
      */
     internal suspend fun dispatch(
         request: Hyper4kRequest,
         channel: Hyper4kResponseChannel,
     ): Hyper4kResponse {
         val buffered = request.toBuffered()
-        // CORS 头必须在提交前就交给 live response：流式一旦开始写就补不上头了。
+        // CORS headers must reach the live response before it commits: once a stream
+        // starts writing, no header can be added.
         val live = Hyper4kLiveResponse(channel, dispatcher.corsHeaders(buffered))
         val result = dispatcher.dispatch(buffered, live)
         return if (live.isCommitted) Hyper4kResponse.streamed(live.status.code) else result.toHyper4k()
