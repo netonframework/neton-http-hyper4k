@@ -4,7 +4,7 @@ plugins {
     `maven-publish`
 }
 
-group = "com.netonframework"
+group = "com.netonstream"
 version = "0.2.0"
 
 repositories {
@@ -25,7 +25,7 @@ kotlin {
                 api("com.netonstream:neton-http:1.0.0-beta2")
                 api("com.netonstream:neton-core:1.0.0-beta2")
                 implementation("com.netonstream:neton-logging:1.0.0-beta2")
-                implementation("com.netonframework:hyper4k:0.2.0")
+                implementation("com.netonstream:hyper4k:0.1.0")
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
             }

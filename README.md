@@ -7,7 +7,7 @@ at compile time by passing its constructor to the Neton HTTP component:
 
 ```kotlin
 dependencies {
-    implementation("com.netonframework:neton-http-hyper4k:0.2.0")
+    implementation("com.netonstream:neton-http-hyper4k:1.0.0-beta3")
 }
 ```
 
